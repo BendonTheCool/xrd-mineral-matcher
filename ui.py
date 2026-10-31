@@ -45,6 +45,29 @@ code, .mono { font-family: var(--font-mono); }
               padding: .1rem .45rem; margin: 0 .3rem .3rem 0; display: inline-block; font-size: .95rem; }
 .step-n { font-family: var(--font-mono); font-size: .85rem; opacity: .7; }
 .muted { opacity: .75; }
+
+/* ---- signature: the detector-screen hero (colors fixed: it is content, like an image) ---- */
+.hero { background: radial-gradient(120% 140% at 85% 50%, #12343B 0%, #0B1F24 55%); color: #FFFFFF;
+        border-radius: 22px; padding: 2rem 2.2rem; display: flex; gap: 2rem; align-items: center;
+        flex-wrap: wrap; margin-bottom: 1.6rem; }
+.hero-text { flex: 1 1 22rem; min-width: 0; }
+.hero .eyebrow { color: #8FB3B8; opacity: 1; }                 /* 7.5:1 */
+.hero h1 { color: #FFFFFF; font-size: 2.6rem; line-height: 1.08; margin: .1rem 0 .7rem 0; padding: 0; }
+.hero .lede { color: #C3D5D8; opacity: 1; margin: 0; }         /* 11.2:1 */
+.hero-rings { flex: 0 0 auto; text-align: center; }
+.hero-rings figcaption { color: #8FB3B8; font-size: .85rem; margin-top: .4rem; font-family: var(--font-mono); }
+.ring { transform-origin: 50% 50%; transform-box: view-box; animation: ring-in .7s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes ring-in { from { transform: scale(.55); opacity: 0; } to { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .ring { animation: none; } }
+@media (max-width: 640px) { .hero { padding: 1.4rem; } .hero h1 { font-size: 2rem; } }
+
+/* ---- quiet surfaces ---- */
+[data-testid="stMetric"] { border: 1px solid var(--hairline); background: var(--fill); border-radius: 14px; padding: .9rem 1.1rem; }
+[data-testid="stMetricValue"] { font-weight: 650; letter-spacing: -0.01em; }
+[data-testid="stExpander"] details { border-radius: 14px; }
+[data-testid="stPlotlyChart"] { border: 1px solid var(--hairline); border-radius: 14px; padding: .4rem .2rem 0 .2rem; }
+.card { box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 6px 24px rgba(0,0,0,.05); }
+.side-mark { display: flex; align-items: center; gap: .55rem; font-weight: 650; font-size: 1.02rem; margin: .2rem 0 .6rem 0; }
 </style>
 """
 
@@ -60,6 +83,46 @@ def header(eyebrow: str, title: str, lede: str | None = None):
     st.title(title)
     if lede:
         st.markdown(f'<p class="lede">{escape(lede)}</p>', unsafe_allow_html=True)
+
+
+def rings_svg(grid, v, size=230, n_rings=16) -> str:
+    """Debye–Scherrer-style rings computed from a pattern: radius from 2θ, weight and brightness from peak height."""
+    from scipy.signal import find_peaks
+
+    v = np.asarray(v, float)
+    c = size / 2
+    rmax = c - 6
+    parts = [f'<circle cx="{c}" cy="{c}" r="{rmax:.1f}" fill="none" stroke="#1E4A52" stroke-width="1"/>']
+    if v.max() > 0:
+        p, props = find_peaks(v, prominence=0.05 * v.max())
+        p = p[np.argsort(-props["prominences"])][:n_rings]
+        h = v[p] / v[p].max() if len(p) else []
+        lo, hi = float(grid[0]), float(grid[-1])
+        for k, (i, hh) in enumerate(sorted(zip(p, h), key=lambda t: grid[t[0]])):
+            r = 10 + (rmax - 10) * (grid[i] - lo) / (hi - lo)
+            parts.append(
+                f'<circle class="ring" style="animation-delay:{k * 45}ms" cx="{c}" cy="{c}" r="{r:.1f}" fill="none" '
+                f'stroke="#5CC8D1" stroke-opacity="{0.25 + 0.75 * hh:.2f}" stroke-width="{0.8 + 3.2 * hh:.2f}"/>')
+    parts.append(f'<circle cx="{c}" cy="{c}" r="5" fill="#0B1F24" stroke="#8FB3B8" stroke-width="1.5"/>')  # beam stop
+    return (f'<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}" role="img" '
+            f'aria-label="Diffraction rings drawn from the strongest peaks">' + "".join(parts) + "</svg>")
+
+
+def hero(eyebrow: str, title: str, lede: str, svg: str, caption: str):
+    st.markdown(
+        f'<section class="hero"><div class="hero-text"><div class="eyebrow">{escape(eyebrow)}</div>'
+        f'<h1>{escape(title)}</h1><p class="lede">{escape(lede)}</p></div>'
+        f'<figure class="hero-rings" style="margin:0">{svg}<figcaption>{escape(caption)}</figcaption></figure></section>',
+        unsafe_allow_html=True)
+
+
+def sidebar_mark():
+    mark = ('<svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">'
+            '<circle cx="13" cy="13" r="11.5" fill="#0B1F24"/>'
+            '<circle cx="13" cy="13" r="8.5" fill="none" stroke="#5CC8D1" stroke-width="1.6"/>'
+            '<circle cx="13" cy="13" r="5" fill="none" stroke="#5CC8D1" stroke-opacity=".6" stroke-width="1"/>'
+            '<circle cx="13" cy="13" r="1.8" fill="#8FB3B8"/></svg>')
+    st.sidebar.markdown(f'<div class="side-mark">{mark}<span>XRD Mineral Matcher</span></div>', unsafe_allow_html=True)
 
 
 def badge(label: str, tone: str) -> str:
@@ -112,9 +175,11 @@ def mirror_plot(grid, query, ref, ref_label, peaks=(), query_label="Your pattern
     """The signature view: query above the axis, reference reflected below it."""
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=grid, y=query, name=query_label, line=dict(color=ACCENT, width=1.6),
+                             fill="tozeroy", fillcolor="rgba(11,110,120,.14)",
                              hovertemplate="%{x:.2f}°<extra>" + escape(query_label) + "</extra>"))
     fig.add_trace(go.Scatter(x=grid, y=-ref, name=f"{ref_label} (reference, mirrored)",
                              line=dict(color=REF, width=1.4), customdata=ref,
+                             fill="tozeroy", fillcolor="rgba(142,142,147,.14)",
                              hovertemplate="%{x:.2f}°<extra>" + escape(ref_label) + "</extra>"))
     for p in peaks:
         fig.add_vline(x=p, line=dict(color="rgba(127,127,127,.35)", width=1, dash="dot"))

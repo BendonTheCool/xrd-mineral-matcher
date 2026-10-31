@@ -18,6 +18,7 @@ pages = [
 ]
 nav = st.navigation(pages)
 
+ui.sidebar_mark()
 with st.sidebar:
     st.caption("A STEM project using k-nearest neighbors on measured mineral patterns from the RRUFF Project.")
 

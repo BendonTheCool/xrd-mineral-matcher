@@ -8,16 +8,28 @@ import streamlit as st
 import ui
 import xrd_core as core
 
-ui.header("Identify", "Which mineral is this?",
-          "Upload a powder XRD pattern. The app compares it with every reference pattern in the RRUFF "
-          "library and ranks the closest minerals.")
+TITLE = "Which mineral is this?"
+LEDE = ("Upload a powder XRD pattern. The app compares it with every reference pattern in the RRUFF "
+        "library and ranks the closest minerals.")
+hero_slot = st.empty()
 
 lib = ui.library()
 if lib is None:
+    with hero_slot.container():
+        ui.header("Identify", TITLE, LEDE)
     ui.missing_library()
     st.stop()
 
 X, grid, meta, names = lib["X"], lib["grid"], lib["meta"], lib["names"]
+
+
+def show_hero(v, caption):
+    with hero_slot.container():
+        ui.hero("Identify", TITLE, LEDE, ui.rings_svg(grid, v), caption)
+
+
+_demo = meta.index[(meta.name == "Calcite") & (meta.kind == "measured")]
+show_hero(X[int(_demo[0]) if len(_demo) else 0], "Calcite's rings, as an example")
 pre = core.Preprocessor(grid, lib["cfg"])
 _, per_query = ui.metrics()
 cal = core.calibrate(per_query)
@@ -76,6 +88,7 @@ if not hits:
     st.error("No reference patterns to compare with.")
     st.stop()
 
+show_hero(query, "Rings from " + ("this example" if true_name else "your pattern"))
 best_row, best_sim = hits[0]
 level, tone = core.confidence_label(best_sim, cal)
 m = meta.iloc[best_row]
