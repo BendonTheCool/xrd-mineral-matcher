@@ -1,0 +1,13 @@
+[theme]
+primaryColor = "#0B6E78"
+font = "sans serif"
+
+[server]
+maxUploadSize = 5          # MB, uploads are small two-column text files
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
