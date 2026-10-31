@@ -1,0 +1,12 @@
+{
+  "wavelength_ref": 1.541838,
+  "tt_min": 5.0,
+  "tt_max": 90.0,
+  "step": 0.05,
+  "baseline_window_deg": 2.0,
+  "smooth_sigma_bins": 1.0,
+  "intensity_transform": "sqrt",
+  "normalisation": "L2",
+  "metric": "cosine",
+  "dif_fwhm_deg": 0.15
+}
